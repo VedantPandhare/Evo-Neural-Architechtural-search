@@ -23,6 +23,8 @@ class TrainConfig:
     data_dir: str = "./data"
     augment: bool = True
     subset_seed: int = 42
+    val_size: int = 5000
+    use_test_set: bool = False
 
 
 def _subset_indices(dataset_len: int, n: int, seed: int) -> list:
@@ -40,7 +42,13 @@ def get_cifar10_loaders(
     num_workers: int = 0,
     augment: bool = True,
     subset_seed: int = 42,
+    val_size: int = 5000,
+    split_seed: int = 0,
+    use_test_set: bool = False,
 ) -> tuple:
+    """By default the second loader is a validation split held out of the 50k training
+    images (used for fitness during search). Set use_test_set=True only for the final
+    evaluation: it trains on all 50k and evaluates on the official 10k test set."""
     if augment and max_train_samples is None:
         train_transform = T.Compose([
             T.RandomCrop(32, padding=4),
@@ -53,7 +61,16 @@ def get_cifar10_loaders(
     val_transform = T.Compose([T.ToTensor(), T.Normalize(CIFAR10_MEAN, CIFAR10_STD)])
 
     train_set = torchvision.datasets.CIFAR10(root=data_dir, train=True, download=True, transform=train_transform)
-    val_set = torchvision.datasets.CIFAR10(root=data_dir, train=False, download=True, transform=val_transform)
+
+    if use_test_set:
+        val_set = torchvision.datasets.CIFAR10(root=data_dir, train=False, download=True, transform=val_transform)
+    else:
+        # same images, eval transform; the split is fixed by split_seed so it never changes between genomes
+        val_set = torchvision.datasets.CIFAR10(root=data_dir, train=True, download=True, transform=val_transform)
+        perm = _subset_indices(len(train_set), len(train_set), split_seed)
+        val_idx, train_idx = perm[:val_size], perm[val_size:]
+        train_set = Subset(train_set, train_idx)
+        val_set = Subset(val_set, val_idx)
 
     if max_train_samples is not None:
         idx = _subset_indices(len(train_set), max_train_samples, subset_seed)
@@ -114,6 +131,8 @@ def train_and_evaluate(model: nn.Module, genome: dict, cfg: TrainConfig) -> floa
         num_workers=cfg.num_workers,
         augment=cfg.augment,
         subset_seed=cfg.subset_seed,
+        val_size=cfg.val_size,
+        use_test_set=cfg.use_test_set,
     )
 
     for _ in range(cfg.epochs):
