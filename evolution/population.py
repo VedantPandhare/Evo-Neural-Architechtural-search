@@ -37,12 +37,21 @@ def init_population(n: int, rng: random.Random, max_tries: int = 1000) -> list:
     return pop
 
 
-def next_generation(population: list, fitnesses: list, cfg: EvolutionConfig, rng: random.Random) -> list:
-    """Elites carried over unchanged; the rest are tournament-selected parents -> crossover -> mutation."""
+def next_generation(population: list, fitnesses: list, cfg: EvolutionConfig, rng: random.Random,
+                    lineage: list | None = None) -> list:
+    """Elites carried over unchanged; the rest are tournament-selected parents -> crossover -> mutation.
+
+    If `lineage` is a list, one (primary_parent_hash, secondary_parent_hash | None) entry is
+    appended per new-population slot, aligned with the returned list. Elites are listed as their
+    own primary parent. The primary parent is the one that supplied the conv prefix (parent A),
+    which is the priority parent for weight inheritance."""
     new_pop = [population[i] for i in elite_indices(fitnesses, cfg.elite_fraction)]
+    if lineage is not None:
+        lineage.extend((genome_hash(g), None) for g in new_pop)
     while len(new_pop) < len(population):
         pa = population[tournament_select(fitnesses, cfg.tournament_size, rng)]
         crossed = rng.random() < cfg.crossover_rate
+        pb = None
         if crossed:
             pb = population[tournament_select(fitnesses, cfg.tournament_size, rng)]
             child = crossover(pa, pb, rng)
@@ -51,6 +60,8 @@ def next_generation(population: list, fitnesses: list, cfg: EvolutionConfig, rng
         if not crossed or rng.random() < cfg.mutation_rate:
             child, _ = mutate(child, rng)
         new_pop.append(child)
+        if lineage is not None:
+            lineage.append((genome_hash(pa), genome_hash(pb) if pb is not None else None))
     return new_pop
 
 

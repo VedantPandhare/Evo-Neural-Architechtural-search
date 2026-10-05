@@ -103,3 +103,16 @@ def test_run_evolution_smoke_caches_and_best_never_regresses():
     bests = [h["best"] for h in out["history"]]
     assert bests == sorted(bests)  # elitism => best fitness is monotone
     assert validate_genome(out["best_genome"]).valid
+
+
+def test_next_generation_lineage_aligned_with_population():
+    pop = _genomes(10)
+    fit = [float(i) for i in range(10)]
+    cfg = EvolutionConfig(population_size=10, elite_fraction=0.2, crossover_rate=1.0)
+    lineage = []
+    new = next_generation(pop, fit, cfg, random.Random(0), lineage=lineage)
+    hashes = {genome_hash(g) for g in pop}
+    assert len(lineage) == len(new)
+    assert all(a in hashes and (b is None or b in hashes) for a, b in lineage)
+    assert lineage[0] == (genome_hash(pop[9]), None)
+    assert all(b is not None for _, b in lineage[2:])  # crossover_rate=1.0
