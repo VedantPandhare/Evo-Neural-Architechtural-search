@@ -62,3 +62,24 @@ def compute_fitness(accuracy: float, n_params: int, latency_s: float, cfg: Fitne
         - cfg.lambda_params * normalized_param_count(n_params, cfg)
         - cfg.lambda_latency * normalized_latency(latency_s, cfg)
     )
+
+
+@dataclass
+class EvalResult:
+    accuracy: float
+    n_params: int
+    latency: float
+    fitness: float
+
+
+def evaluate_genome(genome: dict, train_cfg, fitness_cfg: FitnessConfig) -> EvalResult:
+    """Build, train, and score one genome. Latency is measured on train_cfg.device."""
+    from models.builder import build_model
+    from training.trainer import train_and_evaluate
+
+    model = build_model(genome)
+    accuracy = train_and_evaluate(model, genome, train_cfg)
+    n_params = count_parameters(model)
+    latency = measure_latency(model, tuple(genome["input_shape"]), device=train_cfg.device)
+    fitness = compute_fitness(accuracy, n_params, latency, fitness_cfg)
+    return EvalResult(accuracy=accuracy, n_params=n_params, latency=latency, fitness=fitness)
