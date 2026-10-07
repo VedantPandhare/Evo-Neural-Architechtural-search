@@ -59,6 +59,16 @@ def _search_record(run_dir: str, genome: dict):
     return None
 
 
+FIXED_RECIPE = {"optimizer": "adam", "learning_rate": 1e-3, "batch_size": 128}
+
+
+def with_fixed_recipe(genome: dict) -> dict:
+    """Copy of the genome with one shared training recipe, so only the architecture differs between models."""
+    g = json.loads(json.dumps(genome))
+    g.update(FIXED_RECIPE)
+    return g
+
+
 def collect_models(out_dir: str, seeds, include_baseline: bool = True) -> list:
     """[{name, arm, seed, genome, search_fitness, search_accuracy, ...}] for every finished search
     run, plus the baseline. search_accuracy is the validation accuracy the search measured for that
@@ -117,6 +127,7 @@ def run_final(models: list, cfg: TrainConfig, train_seeds, results_path: str) ->
                    "search_generation": m.get("search_generation"),
                    "search_inherit_fraction": m.get("search_inherit_fraction"),
                    "eval_split": "test" if cfg.use_test_set else "val", "epochs": cfg.epochs,
+                   "recipe": m.get("recipe", "genome"),
                    **res, "genome": m["genome"]}
             with open(results_path, "a") as f:
                 f.write(json.dumps(rec, sort_keys=True) + "\n")
@@ -201,6 +212,10 @@ def main(argv=None):
     ap.add_argument("--eval-split", choices=["test", "val"], default="test",
                     help="test: train on 50k, evaluate on the official test set (use ONCE, at the very end). "
                          "val: train on 45k, evaluate on the held-out 5k validation split (method development).")
+    ap.add_argument("--recipe", choices=["genome", "fixed"], default="genome",
+                    help="genome: each model keeps the optimizer/lr/batch size from its genome. fixed: every model "
+                         "trains with adam, lr 1e-3, batch 128, isolating architecture quality from the "
+                         "training recipe the search co-evolved.")
     ap.add_argument("--no-baseline", action="store_true")
     ap.add_argument("--max-train-samples", type=int, help="testing only: cap the training set")
     ap.add_argument("--max-val-samples", type=int, help="testing only: cap the test set")
@@ -212,7 +227,9 @@ def main(argv=None):
                       gpu_data=True, augment=True, max_train_samples=args.max_train_samples,
                       max_val_samples=args.max_val_samples)
     models = collect_models(args.out_dir, args.seeds, include_baseline=not args.no_baseline)
-    sub = "final" if use_test else "final_val"
+    if args.recipe == "fixed":
+        models = [dict(m, genome=with_fixed_recipe(m["genome"]), recipe="fixed") for m in models]
+    sub = ("final" if use_test else "final_val") + ("_fixedrecipe" if args.recipe == "fixed" else "")
     results_path = os.path.join(args.out_dir, sub, "results.jsonl")
     rows = run_final(models, cfg, range(args.train_seeds), results_path)
 

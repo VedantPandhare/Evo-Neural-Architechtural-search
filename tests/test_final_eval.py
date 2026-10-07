@@ -128,3 +128,24 @@ def test_val_split_mode_writes_to_separate_folder_and_never_uses_test_set(tmp_pa
     assert not os.path.exists(os.path.join(out, "final"))
     rows = load_results(os.path.join(out, "final_val", "results.jsonl"))
     assert {r["eval_split"] for r in rows} == {"val"}
+
+
+def test_fixed_recipe_overrides_training_fields_without_touching_original():
+    from final_eval import FIXED_RECIPE, with_fixed_recipe
+    g = _valid_genome()
+    g["optimizer"], g["learning_rate"], g["batch_size"] = "sgd", 0.01, 32
+    f = with_fixed_recipe(g)
+    assert {k: f[k] for k in FIXED_RECIPE} == FIXED_RECIPE
+    assert f["layers"] == g["layers"] and g["optimizer"] == "sgd" and g["batch_size"] == 32
+
+
+def test_fixed_recipe_mode_uses_separate_folder_and_trains_with_shared_recipe(tmp_path):
+    out = str(tmp_path)
+    _fake_search_run(out, "search_inherit_seed0", _valid_genome(0), 0.75)
+    _fake_search_run(out, "search_scratch_seed0", _valid_genome(1), 0.70)
+    main(["--out-dir", out, "--seeds", "0", "--epochs", "1", "--device", "cpu", "--no-baseline",
+          "--eval-split", "val", "--recipe", "fixed", "--max-train-samples", "100", "--max-val-samples", "50"])
+    rows = load_results(os.path.join(out, "final_val_fixedrecipe", "results.jsonl"))
+    assert len(rows) == 2 and {r["recipe"] for r in rows} == {"fixed"}
+    assert {(r["genome"]["optimizer"], r["genome"]["batch_size"]) for r in rows} == {("adam", 128)}
+    assert not os.path.exists(os.path.join(out, "final_val"))
