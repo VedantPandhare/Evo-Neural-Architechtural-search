@@ -72,14 +72,20 @@ class EvalResult:
     fitness: float
 
 
-def evaluate_genome(genome: dict, train_cfg, fitness_cfg: FitnessConfig) -> EvalResult:
-    """Build, train, and score one genome. Latency is measured on train_cfg.device."""
-    from models.builder import build_model
+def evaluate_model(model: nn.Module, genome: dict, train_cfg, fitness_cfg: FitnessConfig) -> EvalResult:
+    """Train and score an already-built model (e.g. one carrying inherited weights).
+    Latency is measured on train_cfg.device."""
     from training.trainer import train_and_evaluate
 
-    model = build_model(genome)
     accuracy = train_and_evaluate(model, genome, train_cfg)
     n_params = count_parameters(model)
     latency = measure_latency(model, tuple(genome["input_shape"]), device=train_cfg.device)
     fitness = compute_fitness(accuracy, n_params, latency, fitness_cfg)
     return EvalResult(accuracy=accuracy, n_params=n_params, latency=latency, fitness=fitness)
+
+
+def evaluate_genome(genome: dict, train_cfg, fitness_cfg: FitnessConfig) -> EvalResult:
+    """Build from scratch, train, and score one genome."""
+    from models.builder import build_model
+
+    return evaluate_model(build_model(genome), genome, train_cfg, fitness_cfg)
