@@ -182,6 +182,20 @@ class RunLogger:
     def completed_generations(self) -> int:
         return len(self.load_generations())
 
+    def truncate_from_generation(self, generation: int) -> None:
+        """Drop log rows for `generation` and later. Used on resume: a crash mid-generation leaves
+        partial candidate records for a generation that will be re-run from the checkpoint."""
+        recs = [r for r in self.load_candidates() if r["generation"] < generation]
+        with open(self._paths["candidates.jsonl"], "w") as f:
+            for r in recs:
+                f.write(json.dumps(r, sort_keys=True) + "\n")
+        rows = [r for r in self.load_generations() if r["generation"] < generation]
+        with open(self._paths["generations.csv"], "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=GENERATION_FIELDS)
+            w.writeheader()
+            w.writerows(rows)
+        self._prior_seconds = rows[-1]["cumulative_seconds"] if rows else 0.0
+
     def _last_cumulative_seconds(self) -> float:
         rows = self.load_generations()
         return rows[-1]["cumulative_seconds"] if rows else 0.0
