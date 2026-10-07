@@ -21,9 +21,14 @@ def _valid_genome(seed=0):
                 if validate_genome(g).valid)
 
 
-def _fake_search_run(out_dir, name, genome, fitness):
+def _fake_search_run(out_dir, name, genome, fitness, search_acc=None):
     d = os.path.join(out_dir, name)
     os.makedirs(d)
+    if search_acc is not None:
+        from genomes.operators import genome_hash
+        with open(os.path.join(d, "candidates.jsonl"), "w") as f:
+            f.write(json.dumps({"genome_hash": genome_hash(genome), "accuracy": search_acc,
+                                "generation": 4, "inherit_fraction": 0.7}) + "\n")
     with open(os.path.join(d, "summary.json"), "w") as f:
         json.dump({"best_genome": genome, "best_fitness": fitness}, f)
 
@@ -95,3 +100,31 @@ def test_main_end_to_end_on_tiny_data(tmp_path):
     assert set(s["models"]) == {"on_seed0", "off_seed0"}
     assert os.path.exists(os.path.join(out, "final", "results.jsonl"))
     assert os.path.exists(os.path.join(out, "final", "summary.txt"))
+
+
+def test_collect_models_attaches_search_time_accuracy(tmp_path):
+    out = str(tmp_path)
+    _fake_search_run(out, "search_inherit_seed0", _valid_genome(0), 0.75, search_acc=0.78)
+    _fake_search_run(out, "search_scratch_seed0", _valid_genome(1), 0.70)  # no candidates.jsonl
+    on, off, base = collect_models(out, [0])
+    assert on["search_accuracy"] == 0.78 and on["search_generation"] == 4 and on["search_inherit_fraction"] == 0.7
+    assert off["search_accuracy"] is None and base["search_accuracy"] is None
+
+
+def test_format_final_shows_drop_between_search_and_final_accuracy():
+    rows = [dict(_row("on_seed0", "on", 0, 0.65), search_accuracy=0.78, search_inherit_fraction=0.7),
+            dict(_row("off_seed0", "off", 0, 0.85), search_accuracy=0.70, search_inherit_fraction=0.0)]
+    text = format_final(summarize_final(rows))
+    assert "-0.130" in text and "+0.150" in text
+
+
+def test_val_split_mode_writes_to_separate_folder_and_never_uses_test_set(tmp_path):
+    out = str(tmp_path)
+    _fake_search_run(out, "search_inherit_seed0", _valid_genome(0), 0.75, search_acc=0.7)
+    _fake_search_run(out, "search_scratch_seed0", _valid_genome(1), 0.70, search_acc=0.6)
+    main(["--out-dir", out, "--seeds", "0", "--epochs", "1", "--device", "cpu", "--no-baseline",
+          "--eval-split", "val", "--max-train-samples", "100", "--max-val-samples", "50"])
+    assert os.path.exists(os.path.join(out, "final_val", "results.jsonl"))
+    assert not os.path.exists(os.path.join(out, "final"))
+    rows = load_results(os.path.join(out, "final_val", "results.jsonl"))
+    assert {r["eval_split"] for r in rows} == {"val"}
