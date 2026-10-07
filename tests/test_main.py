@@ -80,3 +80,14 @@ def test_cli_overrides_apply(tmp_path):
     assert out["inheritance"] is False and out["evolution"]["seed"] == 3
     assert all(r["inherit_fraction"] == 0.0
                for r in map(json.loads, (tmp_path / "x" / "o" / "candidates.jsonl").read_text().splitlines()))
+
+
+def test_epoch_control_config_differs_from_scratch_only_in_epochs_and_name():
+    from configs.loader import load_config
+    base, ctrl = load_config("configs/search_scratch.yaml"), load_config("configs/search_scratch_epochs6.yaml")
+    assert ctrl["inheritance"] is False and ctrl["training"]["epochs"] == 2 * base["training"]["epochs"]
+    assert ctrl["run_name"] != base["run_name"]
+    strip = lambda c: {k: (v if k != "training" else {a: b for a, b in v.items() if a != "epochs"})
+                       for k, v in c.items() if k != "run_name"}
+    assert strip(ctrl) == strip(base)
+    build_run(ctrl)

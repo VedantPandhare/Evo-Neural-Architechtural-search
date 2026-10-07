@@ -1,0 +1,26 @@
+# CONTROL arm: inheritance OFF but 6 epochs per candidate (ON children effectively get more than 3 via parents).
+# Identical to search_scratch.yaml except epochs and run_name.
+run_name: search_scratch6_seed0
+output_dir: results
+inheritance: false
+device: auto
+evolution:
+  population_size: 20
+  generations: 15
+  tournament_size: 3
+  elite_fraction: 0.1
+  crossover_rate: 0.5
+  mutation_rate: 0.8
+  seed: 0
+training:
+  epochs: 6
+  max_train_samples: 20000
+  max_val_samples: 5000
+  data_dir: ./data
+  gpu_data: true
+  amp: false
+fitness:
+  lambda_params: 0.1
+  lambda_latency: 0.1
+  param_reference: 2000000
+  latency_reference: 0.05
