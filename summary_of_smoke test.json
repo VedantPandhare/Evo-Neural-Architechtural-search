@@ -1,0 +1,64 @@
+{
+  "best_fitness": 0.28262704872,
+  "best_genome": {
+    "batch_size": 64,
+    "dropout": 0.0,
+    "input_shape": [
+      3,
+      32,
+      32
+    ],
+    "layers": [
+      {
+        "activation": "gelu",
+        "batchnorm": true,
+        "filters": 128,
+        "kernel_size": 5,
+        "padding": "same",
+        "stride": 1,
+        "type": "conv2d"
+      },
+      {
+        "activation": "tanh",
+        "batchnorm": true,
+        "filters": 32,
+        "kernel_size": 3,
+        "padding": "same",
+        "stride": 1,
+        "type": "conv2d"
+      },
+      {
+        "type": "flatten"
+      },
+      {
+        "activation": "gelu",
+        "batchnorm": true,
+        "type": "dense",
+        "units": 256
+      },
+      {
+        "rate": 0.0,
+        "type": "dropout"
+      },
+      {
+        "activation": "relu",
+        "batchnorm": false,
+        "type": "dense",
+        "units": 512
+      },
+      {
+        "activation": "relu",
+        "batchnorm": true,
+        "type": "dense",
+        "units": 512
+      }
+    ],
+    "learning_rate": 0.001,
+    "num_classes": 10,
+    "optimizer": "rmsprop"
+  },
+  "generations": 3,
+  "inheritance": true,
+  "total_gpu_hours_wallclock": 0.37065142784388894,
+  "total_seconds": 1334.345140238
+}
