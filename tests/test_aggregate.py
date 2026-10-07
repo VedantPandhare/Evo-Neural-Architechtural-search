@@ -68,3 +68,17 @@ def test_timing_by_size_buckets_and_report_renders(tmp_path):
     assert t["<1e5"]["n"] == 0 and t["<1e5"]["mean_train_seconds"] is None
     text = format_report(summarize(out, [0]))
     assert "2.00s (n=2)" in text and "4.00s (n=2)" in text and "paired ON-OFF" in text
+
+
+def test_same_genome_timing_ratio_and_failure_rates(tmp_path):
+    from evaluation.aggregate import failure_rates, same_genome_timing
+    out = str(tmp_path)
+    _make_run(out, "search_inherit_seed0", [0.5, 0.6], train_s=2.0)
+    _make_run(out, "search_scratch_seed0", [0.5, 0.6], train_s=3.0)
+    on, off = load_run(os.path.join(out, "search_inherit_seed0")), load_run(os.path.join(out, "search_scratch_seed0"))
+    t = same_genome_timing(on, off)
+    assert t["generation_0"]["n"] == 1 and abs(t["generation_0"]["median_ratio_off_over_on"] - 1.5) < 1e-9
+    assert failure_rates(on)["n"] == 1 and failure_rates(on)["failure_rate"] == 0.0
+    assert failure_rates({"cands": [{"generation": 0, "accuracy": 0.1}]})["n"] == 0
+    text = format_report(summarize(out, [0]))
+    assert "Same-genome timing" in text and "Bad offspring" in text
