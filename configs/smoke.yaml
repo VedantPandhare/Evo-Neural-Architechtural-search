@@ -1,0 +1,25 @@
+# Tiny end-to-end check (CPU-friendly): ~5 genomes, 3 generations, 2 epochs on a small subset.
+run_name: smoke
+output_dir: results
+inheritance: true
+device: auto
+evolution:
+  population_size: 5
+  generations: 3
+  tournament_size: 2
+  elite_fraction: 0.2
+  crossover_rate: 0.5
+  mutation_rate: 0.8
+  seed: 0
+training:
+  epochs: 2
+  max_train_samples: 2000
+  max_val_samples: 1000
+  data_dir: ./data
+  gpu_data: true
+  amp: false
+fitness:
+  lambda_params: 0.1
+  lambda_latency: 0.1
+  param_reference: 2000000
+  latency_reference: 0.05
